@@ -14,8 +14,9 @@ from tools import ALL_TOOLS
 load_dotenv()
 
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "qwen/qwen3.6-plus"
+MODEL = "qwen/qwen3.7-max"
 AVAILABLE_MODELS = [
+    "qwen/qwen3.7-max",
     "qwen/qwen3.6-plus",
     "moonshotai/kimi-k2.6",
     "z-ai/glm-5.1",
@@ -120,6 +121,9 @@ def agent_loop(
     step_label: str | None = None,
     submit_result_schema: dict | None = None,
 ) -> dict:
+    from langfuse_client import get_langfuse, null_ctx
+    lf = get_langfuse()
+
     initial_len = len(messages)
     messages.append({"role": "user", "content": user_message})
 
@@ -142,40 +146,58 @@ def agent_loop(
             finish_reason = None
             usage: dict = {}
 
-            for chunk in call_api_streaming(messages, active_tools, model, cancel_event):
-                if not chunk.get("choices"):
-                    continue
-                choice = chunk["choices"][0]
-                finish_reason = choice.get("finish_reason") or finish_reason
-                delta = choice.get("delta", {})
-
-                # Accumulate and stream text content
-                if delta.get("content"):
-                    print(delta["content"], end="", flush=True)
-                    content_parts.append(delta["content"])
-
-                # Accumulate tool call deltas
-                for tc in delta.get("tool_calls", []):
-                    idx = tc.get("index")
-                    if idx is None:
+            messages_snapshot = list(messages)
+            with (lf.start_as_current_observation(
+                name="api-call",
+                as_type="generation",
+                model=model,
+                model_parameters={"max_tokens": MAX_TOKENS},
+                input=messages_snapshot,
+            ) if lf else null_ctx()) as gen:
+                for chunk in call_api_streaming(messages, active_tools, model, cancel_event):
+                    if not chunk.get("choices"):
                         continue
-                    if idx not in tool_calls_acc:
-                        tool_calls_acc[idx] = {
-                            "id": tc.get("id", ""),
-                            "type": "function",
-                            "function": {"name": "", "arguments": ""},
-                        }
-                    acc = tool_calls_acc[idx]
-                    if tc.get("id"):
-                        acc["id"] = tc["id"]
-                    fn = tc.get("function", {})
-                    if fn.get("name"):
-                        acc["function"]["name"] += fn["name"]
-                    if fn.get("arguments"):
-                        acc["function"]["arguments"] += fn["arguments"]
+                    choice = chunk["choices"][0]
+                    finish_reason = choice.get("finish_reason") or finish_reason
+                    delta = choice.get("delta", {})
 
-                if chunk.get("usage"):
-                    usage = chunk["usage"]
+                    # Accumulate and stream text content
+                    if delta.get("content"):
+                        print(delta["content"], end="", flush=True)
+                        content_parts.append(delta["content"])
+
+                    # Accumulate tool call deltas
+                    for tc in delta.get("tool_calls", []):
+                        idx = tc.get("index")
+                        if idx is None:
+                            continue
+                        if idx not in tool_calls_acc:
+                            tool_calls_acc[idx] = {
+                                "id": tc.get("id", ""),
+                                "type": "function",
+                                "function": {"name": "", "arguments": ""},
+                            }
+                        acc = tool_calls_acc[idx]
+                        if tc.get("id"):
+                            acc["id"] = tc["id"]
+                        fn = tc.get("function", {})
+                        if fn.get("name"):
+                            acc["function"]["name"] += fn["name"]
+                        if fn.get("arguments"):
+                            acc["function"]["arguments"] += fn["arguments"]
+
+                    if chunk.get("usage"):
+                        usage = chunk["usage"]
+
+                if gen is not None:
+                    gen.update(
+                        output="".join(content_parts) or [tool_calls_acc[i] for i in sorted(tool_calls_acc)],
+                        usage_details={
+                            "input": usage.get("prompt_tokens", 0),
+                            "output": usage.get("completion_tokens", 0),
+                        },
+                        cost_details={"total": usage.get("cost", 0.0)},
+                    )
 
             if content_parts:
                 print()  # newline after streamed content
@@ -234,7 +256,17 @@ def agent_loop(
                     print(f"  [Tool: {name}], params: {params_str}")
                     if trace is not None:
                         trace.log(step=step_label, event="tool_call", tool=name, params=params)
-                    result = execute_tool(name, params, tool_handlers, mcp_clients)
+                    with (lf.start_as_current_observation(
+                        name=f"tool:{name}",
+                        as_type="tool",
+                        input=params,
+                    ) if lf else null_ctx()) as tool_obs:
+                        result = execute_tool(name, params, tool_handlers, mcp_clients)
+                        if tool_obs is not None:
+                            tool_obs.update(
+                                output=result[:2000],
+                                level="ERROR" if result.startswith("Error:") else "DEFAULT",
+                            )
                     if trace is not None:
                         from trace import _preview
                         trace.log(step=step_label, event="tool_result", tool=name,

@@ -268,7 +268,9 @@ def eval_condition(expr: str, result: dict) -> bool:
 def run_pipeline(steps: list[StepConfig], command: str, traces_dir: str | Path = "traces", workflow_name: str = "pipeline") -> None:
     """Run command through each agent in sequence, chaining responses."""
     from trace import Trace, _preview
+    from langfuse_client import get_langfuse, lf_shutdown, null_ctx
 
+    lf = get_langfuse()
     step_index_map: dict[str, int] = {s["id"]: i for i, s in enumerate(steps)}
     agent_cache: dict[str, AgentConfig] = {}
     loop_counts: dict[str, int] = {}
@@ -282,6 +284,14 @@ def run_pipeline(steps: list[StepConfig], command: str, traces_dir: str | Path =
     trace = Trace(workflow=workflow_name, command=command)
     trace.log(event="pipeline_start", workflow=workflow_name, command=command)
     pipeline_start_time = time.time()
+
+    pipeline_ctx = (lf.start_as_current_observation(
+        name=workflow_name,
+        as_type="span",
+        input={"command": command},
+        metadata={"workflow": workflow_name},
+    ) if lf else null_ctx())
+    pipeline_obs = pipeline_ctx.__enter__()
 
     try:
         while step_index < len(steps):
@@ -345,6 +355,13 @@ def run_pipeline(steps: list[StepConfig], command: str, traces_dir: str | Path =
                 step_output_schema = step.get("output") or {}
                 effective_schema: dict | None = {**agent_output, **step_output_schema} or None
                 submit_schema = build_submit_result_tool(effective_schema) if effective_schema else None
+                step_ctx = (lf.start_as_current_observation(
+                    name=step_label,
+                    as_type="agent",
+                    input={"prompt": effective_input, "model": model, "tools": agent["tool_names"]},
+                    metadata={"step_id": step_id},
+                ) if lf else null_ctx())
+                step_obs = step_ctx.__enter__()
                 try:
                     usage = agent_loop(effective_input, messages, model=model, tools=agent["tools"],
                                        mcp_clients=mcp_clients, trace=trace, step_label=step_label,
@@ -352,6 +369,7 @@ def run_pipeline(steps: list[StepConfig], command: str, traces_dir: str | Path =
                 finally:
                     for client in mcp_clients:
                         client.close()
+                    step_ctx.__exit__(None, None, None)
                 in_tok = usage.get("input_tokens", 0)
                 out_tok = usage.get("output_tokens", 0)
                 cost = usage.get("cost", 0.0)
@@ -441,6 +459,10 @@ def run_pipeline(steps: list[StepConfig], command: str, traces_dir: str | Path =
         trace.log(event="pipeline_end", status=trace.status, total_input=total_input_tokens,
                   total_output=total_output_tokens, total_cost=total_cost, duration=duration)
         trace.save(traces_dir=traces_dir)
+        if pipeline_obs is not None:
+            pipeline_obs.update(output={"status": trace.status, "total_cost": total_cost, "duration": duration})
+        pipeline_ctx.__exit__(None, None, None)
+        lf_shutdown()
 
 
 def _trace_list(traces_dir: str) -> None:
