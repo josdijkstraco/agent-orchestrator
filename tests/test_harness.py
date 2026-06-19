@@ -187,7 +187,7 @@ def test_run_pipeline_appends_step_prompt(monkeypatch):
 
 
 def test_run_pipeline_stops_on_stop_signal(monkeypatch, capsys):
-    """Pipeline exits early when agent response contains STOP."""
+    """Pipeline exits early when an agent ends its output with a standalone STOP line."""
     from unittest.mock import patch
     from harness import run_pipeline
 
@@ -196,7 +196,7 @@ def test_run_pipeline_stops_on_stop_signal(monkeypatch, capsys):
     def fake_agent_loop(user_message, messages, **kwargs):
         nonlocal call_count
         call_count += 1
-        messages.append({"role": "assistant", "content": "Nothing needed here. STOP"})
+        messages.append({"role": "assistant", "content": "Nothing needed here.\nSTOP"})
         return {}
 
     with patch("harness.load_agent", return_value=_agent_config()), \
@@ -211,6 +211,59 @@ def test_run_pipeline_stops_on_stop_signal(monkeypatch, capsys):
     assert call_count == 1
     captured = capsys.readouterr()
     assert "Nothing to do." in captured.err
+
+
+def test_run_pipeline_does_not_stop_on_incidental_stop(monkeypatch, capsys):
+    """Prose mentioning STOP (or NONSTOP) must not halt the pipeline — only a final STOP line does."""
+    from unittest.mock import patch
+    from harness import run_pipeline
+
+    outputs = ["I did not STOP the process; this is a NONSTOP job.", "All done."]
+    call_count = [0]
+
+    def fake_agent_loop(user_message, messages, **kwargs):
+        messages.append({"role": "assistant", "content": outputs[call_count[0]]})
+        call_count[0] += 1
+        return {}
+
+    with patch("harness.load_agent", return_value=_agent_config()), \
+         patch("harness.agent_loop", side_effect=fake_agent_loop), \
+         patch("harness.build_mcp_clients", return_value=[]):
+        run_pipeline(
+            [{"agent": "agent1", "id": "agent1", "prompt": None, "inputs": ["__input__"]},
+             {"agent": "agent2", "id": "agent2", "prompt": None, "inputs": ["agent1"]}],
+            "Do the thing"
+        )
+
+    assert call_count[0] == 2  # both steps ran; incidental "STOP"/"NONSTOP" did not halt
+    captured = capsys.readouterr()
+    assert "Nothing to do." not in captured.err
+
+
+def test_run_pipeline_loop_on_does_not_fire_on_embedded_token():
+    """loop_on 'APPROVED' must not fire inside 'UNAPPROVED' (whole-word match, not substring)."""
+    from unittest.mock import patch
+    from harness import run_pipeline
+
+    call_count = [0]
+
+    def fake_agent_loop(user_message, messages, **kwargs):
+        call_count[0] += 1
+        messages.append({"role": "assistant", "content": "Still UNAPPROVED."})
+        return {}
+
+    steps = [
+        {"agent": "implementer", "id": "implementer", "prompt": None, "inputs": ["__input__", "reviewer"]},
+        {"agent": "reviewer", "id": "reviewer", "prompt": None, "inputs": ["implementer"],
+         "loop_on": "APPROVED", "loop_to": "implementer", "max_loops": 3},
+    ]
+
+    with patch("harness.load_agent", return_value=_agent_config()), \
+         patch("harness.agent_loop", side_effect=fake_agent_loop), \
+         patch("harness.build_mcp_clients", return_value=[]):
+        run_pipeline(steps, "Fix the bug")
+
+    assert call_count[0] == 2  # no loop-back: 'APPROVED' is only a substring of 'UNAPPROVED'
 
 
 def test_run_pipeline_no_step_prompt_passes_input_unchanged(monkeypatch):

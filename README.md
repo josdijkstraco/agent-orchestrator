@@ -259,7 +259,7 @@ Or, without a structured schema, fall back to substring matching:
 ```yaml
 - agent: reviewer
   inputs: [implementer]
-  loop_on: UNAPPROVED             # substring match in the step's text output
+  loop_on: UNAPPROVED             # whole-word match in the step's text output
   loop_to: implementer
 ```
 
@@ -268,7 +268,7 @@ When the condition holds, execution jumps back to `loop_to` and the full output 
 **Rules:**
 - `loop_on` and `loop_to` must both be present or both absent
 - `loop_to` must name a step that appears earlier in the workflow
-- `STOP` in a step's text output halts the pipeline (takes precedence over `loop_on`)
+- A standalone `STOP` line (the final non-empty line) in a step's text output halts the pipeline (takes precedence over `loop_on`)
 - A step can't use both `loop_on` and `when`, or both `loop_on` and `stop_on`
 
 ### Stopping Early
@@ -292,7 +292,7 @@ Use `when:` to skip a step when a pattern isn't present in an earlier step's out
 ```yaml
 - agent: github
   inputs: [card]
-  when: FOUND in card     # only run if "FOUND" appears in the card step's output
+  when: FOUND in card     # only run if "FOUND" appears as a whole word in the card step's output
 ```
 
 ### Named Artifacts (`outputs:`)
@@ -319,7 +319,7 @@ the harness extracts the block into the `plan` artifact, which later steps can r
 
 | Keyword | Effect |
 |---------|--------|
-| `STOP` (in text output) | Exits the pipeline early with "Nothing to do." |
+| `STOP` (standalone final line) | Exits the pipeline early with "Nothing to do." |
 | `stop_on` condition | Same, but evaluated against the structured result |
 | `loop_on` condition | Jumps back to `loop_to` step (up to `max_loops` times) |
 

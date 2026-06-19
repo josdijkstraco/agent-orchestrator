@@ -14,8 +14,9 @@ from tools import ALL_TOOLS
 load_dotenv()
 
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "qwen/qwen3.7-max"
+MODEL = "z-ai/glm-5.2"
 AVAILABLE_MODELS = [
+    "z-ai/glm-5.2",
     "qwen/qwen3.7-max",
     "qwen/qwen3.6-plus",
     "moonshotai/kimi-k2.6",
@@ -107,7 +108,7 @@ def call_api_streaming(messages: list, tools: list, model: str = MODEL, cancel_e
                         # OpenRouter occasionally sends malformed chunks; skip silently.
                         continue
             return
-    return
+    raise RuntimeError(f"API persistently overloaded after {max_retries} retries")
 
 
 def agent_loop(
@@ -120,6 +121,7 @@ def agent_loop(
     trace: object | None = None,
     step_label: str | None = None,
     submit_result_schema: dict | None = None,
+    max_turns: int = 20,
 ) -> dict:
     from langfuse_client import get_langfuse, null_ctx
     lf = get_langfuse()
@@ -140,7 +142,7 @@ def agent_loop(
     total_cost = 0.0
 
     try:
-        while True:
+        for _turn in range(max_turns):
             content_parts: list[str] = []
             tool_calls_acc: dict[int, dict] = {}
             finish_reason = None
@@ -280,6 +282,8 @@ def agent_loop(
                 messages.extend(tool_results)
                 if structured_result is not None:
                     return {"input_tokens": total_input, "output_tokens": total_output, "cost": total_cost, "result": structured_result}
+        else:
+            raise RuntimeError(f"{step_label or 'agent'}: exceeded {max_turns} turns without end_turn")
 
     except RequestCancelled:
         del messages[initial_len:]
