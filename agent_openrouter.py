@@ -29,6 +29,7 @@ AVAILABLE_MODELS = [
     "qwen/qwen3.7-max",
     "qwen/qwen3.6-plus",
     "moonshotai/kimi-k2.6",
+    "moonshotai/kimi-k2.7-code",
     "z-ai/glm-5.1",
     "z-ai/glm-4.5-air:free",
     "z-ai/glm-5v-turbo",
