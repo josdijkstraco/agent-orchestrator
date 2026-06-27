@@ -178,9 +178,9 @@ def test_run_pipeline_appends_step_prompt(monkeypatch):
         messages.append({"role": "assistant", "content": "output"})
         return {}
 
-    with patch("harness.load_agent", return_value=_agent_config()), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", return_value=_agent_config()), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         run_pipeline([{"agent": "agent1", "id": "agent1", "prompt": "Extra guidance", "inputs": ["__input__"]}], "Initial command")
 
     assert captured_inputs[0] == "Extra guidance\n\nInitial command"
@@ -199,9 +199,9 @@ def test_run_pipeline_stops_on_stop_signal(monkeypatch, capsys):
         messages.append({"role": "assistant", "content": "Nothing needed here.\nSTOP"})
         return {}
 
-    with patch("harness.load_agent", return_value=_agent_config()), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", return_value=_agent_config()), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         run_pipeline(
             [{"agent": "agent1", "id": "agent1", "prompt": None, "inputs": ["__input__"]},
              {"agent": "agent2", "id": "agent2", "prompt": None, "inputs": ["agent1"]}],
@@ -226,9 +226,9 @@ def test_run_pipeline_does_not_stop_on_incidental_stop(monkeypatch, capsys):
         call_count[0] += 1
         return {}
 
-    with patch("harness.load_agent", return_value=_agent_config()), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", return_value=_agent_config()), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         run_pipeline(
             [{"agent": "agent1", "id": "agent1", "prompt": None, "inputs": ["__input__"]},
              {"agent": "agent2", "id": "agent2", "prompt": None, "inputs": ["agent1"]}],
@@ -258,9 +258,9 @@ def test_run_pipeline_loop_on_does_not_fire_on_embedded_token():
          "loop_on": "APPROVED", "loop_to": "implementer", "max_loops": 3},
     ]
 
-    with patch("harness.load_agent", return_value=_agent_config()), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", return_value=_agent_config()), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         run_pipeline(steps, "Fix the bug")
 
     assert call_count[0] == 2  # no loop-back: 'APPROVED' is only a substring of 'UNAPPROVED'
@@ -278,9 +278,9 @@ def test_run_pipeline_no_step_prompt_passes_input_unchanged(monkeypatch):
         messages.append({"role": "assistant", "content": "output"})
         return {}
 
-    with patch("harness.load_agent", return_value=_agent_config()), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", return_value=_agent_config()), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         run_pipeline([{"agent": "agent1", "id": "agent1", "prompt": None, "inputs": ["__input__"]}], "Initial command")
 
     assert captured_inputs[0] == "Initial command"
@@ -394,9 +394,9 @@ def test_run_pipeline_loops_back_on_keyword():
         {"agent": "reviewer", "id": "reviewer", "prompt": None, "inputs": ["implementer"], "loop_on": "UNAPPROVED", "loop_to": "implementer", "max_loops": 3},
     ]
 
-    with patch("harness.load_agent", side_effect=fake_load_agent), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", side_effect=fake_load_agent), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         run_pipeline(steps, "Fix the bug")
 
     assert len(call_log) == 4
@@ -424,9 +424,9 @@ def test_run_pipeline_loop_respects_max_loops(capsys):
         {"agent": "reviewer", "id": "reviewer", "prompt": None, "inputs": ["implementer"], "loop_on": "UNAPPROVED", "loop_to": "implementer", "max_loops": 2},
     ]
 
-    with patch("harness.load_agent", side_effect=fake_load_agent), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", side_effect=fake_load_agent), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         run_pipeline(steps, "Fix the bug")
 
     # implementer(1) → reviewer(1,loop1) → implementer(2) → reviewer(2,loop2) → implementer(3) → reviewer(3,max exceeded) = 6
@@ -455,9 +455,9 @@ def test_run_pipeline_no_loop_when_keyword_absent():
         {"agent": "reviewer", "id": "reviewer", "prompt": None, "inputs": ["implementer"], "loop_on": "UNAPPROVED", "loop_to": "implementer", "max_loops": 3},
     ]
 
-    with patch("harness.load_agent", side_effect=fake_load_agent), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", side_effect=fake_load_agent), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         run_pipeline(steps, "Fix the bug")
 
     assert call_count[0] == 2
@@ -493,9 +493,9 @@ def test_run_pipeline_step_prompt_not_duplicated_on_loop():
         {"agent": "reviewer", "id": "reviewer", "prompt": "Review it.", "inputs": ["implementer"], "loop_on": "UNAPPROVED", "loop_to": "implementer", "max_loops": 3},
     ]
 
-    with patch("harness.load_agent", side_effect=fake_load_agent), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", side_effect=fake_load_agent), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         run_pipeline(steps, "Fix the bug")
 
     # implementer called twice: prompt should be "Do the work.\n\n<input>" each time
@@ -526,9 +526,9 @@ def test_run_pipeline_creates_trace(tmp_path):
         {"agent": "planner", "id": "planner", "prompt": None, "inputs": ["__input__"], "loop_on": None, "loop_to": None, "max_loops": None},
     ]
 
-    with patch("harness.load_agent", side_effect=fake_load_agent), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", side_effect=fake_load_agent), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         run_pipeline(steps, "Fix the bug", traces_dir=tmp_path)
 
     trace_files = list(tmp_path.glob("*.json"))
@@ -563,9 +563,9 @@ def test_run_pipeline_saves_snapshots(tmp_path):
         {"agent": "implementer", "id": "implementer", "prompt": None, "inputs": ["planner"], "loop_on": None, "loop_to": None, "max_loops": None},
     ]
 
-    with patch("harness.load_agent", side_effect=fake_load_agent), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", side_effect=fake_load_agent), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         run_pipeline(steps, "Fix the bug", traces_dir=tmp_path)
 
     trace_file = list(tmp_path.glob("*.json"))[0]
@@ -593,9 +593,9 @@ def test_run_pipeline_trace_on_failure(tmp_path):
         {"agent": "planner", "id": "planner", "prompt": None, "inputs": ["__input__"], "loop_on": None, "loop_to": None, "max_loops": None},
     ]
 
-    with patch("harness.load_agent", side_effect=fake_load_agent), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", side_effect=fake_load_agent), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         with pytest.raises(RuntimeError):
             run_pipeline(steps, "Fix the bug", traces_dir=tmp_path)
 
@@ -733,9 +733,9 @@ def test_run_pipeline_artifacts_injected_with_labels():
          "loop_on": None, "loop_to": None, "max_loops": None},
     ]
 
-    with patch("harness.load_agent", return_value=_agent_config()), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", return_value=_agent_config()), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         run_pipeline(steps, "Do the thing")
 
     # Third step has two inputs -> each gets a labeled header
@@ -763,9 +763,9 @@ def test_run_pipeline_single_input_is_unlabeled():
          "loop_on": None, "loop_to": None, "max_loops": None},
     ]
 
-    with patch("harness.load_agent", return_value=_agent_config()), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", return_value=_agent_config()), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         run_pipeline(steps, "Do the thing")
 
     assert captured_inputs[1] == "output"
@@ -795,9 +795,9 @@ def test_run_pipeline_artifacts_stored_from_fenced_blocks():
          "loop_on": None, "loop_to": None, "max_loops": None},
     ]
 
-    with patch("harness.load_agent", return_value=_agent_config()), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", return_value=_agent_config()), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         run_pipeline(steps, "Do the thing")
 
     # Single input -> raw content with no header
@@ -848,9 +848,9 @@ def test_run_pipeline_when_true_runs_step():
          "loop_on": None, "loop_to": None, "max_loops": None},
     ]
 
-    with patch("harness.load_agent", return_value=_agent_config()), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", return_value=_agent_config()), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         run_pipeline(steps, "Check it")
 
     assert call_count[0] == 2  # both steps ran
@@ -877,9 +877,9 @@ def test_run_pipeline_when_false_skips_step():
          "loop_on": None, "loop_to": None, "max_loops": None},
     ]
 
-    with patch("harness.load_agent", return_value=_agent_config()), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", return_value=_agent_config()), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         run_pipeline(steps, "Check it")
 
     assert call_count[0] == 1  # only reviewer ran, implementer skipped
@@ -1293,9 +1293,9 @@ def test_run_pipeline_stop_on_structured_result(tmp_path):
         {"agent": "agent2", "id": "agent2", "prompt": None, "inputs": ["agent1"]},
     ]
 
-    with patch("harness.load_agent", return_value=_agent_config()), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", return_value=_agent_config()), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         run_pipeline(steps, "Do the thing", traces_dir=tmp_path)
 
     assert call_count[0] == 1
@@ -1318,9 +1318,9 @@ def test_run_pipeline_stop_on_structured_result_no_text_output(tmp_path):
         {"agent": "agent2", "id": "agent2", "prompt": None, "inputs": ["agent1"]},
     ]
 
-    with patch("harness.load_agent", return_value=_agent_config()), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", return_value=_agent_config()), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         run_pipeline(steps, "Do the thing", traces_dir=tmp_path)
 
     assert call_count[0] == 1
@@ -1348,9 +1348,9 @@ def test_run_pipeline_structured_result_used_as_output_when_no_text(tmp_path):
         {"agent": "agent2", "id": "agent2", "prompt": None, "inputs": ["agent1"]},
     ]
 
-    with patch("harness.load_agent", return_value=_agent_config()), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", return_value=_agent_config()), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         run_pipeline(steps, "Do the thing", traces_dir=tmp_path)
 
     # The second step should receive the structured result as JSON, not the original command
@@ -1392,9 +1392,9 @@ def test_run_pipeline_loop_on_structured_result(tmp_path):
          "loop_on": "decision == REJECTED", "loop_to": "implementer", "max_loops": 3},
     ]
 
-    with patch("harness.load_agent", side_effect=fake_load_agent), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", side_effect=fake_load_agent), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         run_pipeline(steps, "Fix the bug", traces_dir=tmp_path)
 
     assert call_count[0] == 4
@@ -1426,9 +1426,9 @@ def test_run_pipeline_structured_no_loop_when_condition_not_met(tmp_path):
          "loop_on": "decision == REJECTED", "loop_to": "implementer", "max_loops": 3},
     ]
 
-    with patch("harness.load_agent", side_effect=fake_load_agent), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", side_effect=fake_load_agent), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         run_pipeline(steps, "Fix the bug", traces_dir=tmp_path)
 
     assert call_count[0] == 2
@@ -1451,9 +1451,9 @@ def test_run_pipeline_passes_submit_result_schema_to_agent_loop(tmp_path):
          "output": {"status": {"type": "string"}, "context": {"type": "string"}}},
     ]
 
-    with patch("harness.load_agent", return_value=_agent_config()), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", return_value=_agent_config()), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         run_pipeline(steps, "Do the thing", traces_dir=tmp_path)
 
     assert "submit_result_schema" in captured_kwargs[0]
@@ -1476,9 +1476,9 @@ def test_run_pipeline_no_schema_no_submit_result_kwarg(tmp_path):
         {"agent": "agent1", "id": "agent1", "prompt": None, "inputs": ["__input__"]},
     ]
 
-    with patch("harness.load_agent", return_value=_agent_config()), \
-         patch("harness.agent_loop", side_effect=fake_agent_loop), \
-         patch("harness.build_mcp_clients", return_value=[]):
+    with patch("pipeline.load_agent", return_value=_agent_config()), \
+         patch("pipeline.agent_loop", side_effect=fake_agent_loop), \
+         patch("pipeline.build_mcp_clients", return_value=[]):
         run_pipeline(steps, "Do the thing", traces_dir=tmp_path)
 
     assert captured_kwargs[0].get("submit_result_schema") is None

@@ -2,7 +2,7 @@ import json
 import time
 from unittest.mock import patch
 
-from trace import TraceEvent, Trace
+from tracing import TraceEvent, Trace
 
 
 def test_trace_event_creation():

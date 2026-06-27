@@ -548,16 +548,34 @@ agents/              # Agent YAML definitions
 workflows/           # Workflow YAML definitions
 skills/              # Skill markdown files
 traces/              # Saved pipeline traces (auto-generated)
-main.py              # Interactive single-agent REPL (boot logo + default agent)
-harness.py           # Workflow pipeline runner + CLI
-agent_openrouter.py  # Agent loop + streaming OpenRouter calls
-tools.py             # Built-in tool definitions
+
+# Entry points
+harness.py           # CLI: workflow / agent / trace / replay (+ back-compat re-exports)
+main.py              # Interactive single-agent REPL
+repl.py              # Shared REPL helpers (model picker, cancellable turn, input)
+
+# Loading & config
+workflow.py          # load_workflow + step validation
+agent_loader.py      # load_agent (tools / skills / mcp resolution)
+
+# Execution
+pipeline.py          # run_pipeline (step orchestration) + dry-run
+agent_openrouter.py  # agent_loop: turn-by-turn OpenRouter driver
+streaming.py         # pure SSE delta accumulation
+
+# Pure helpers
+conditions.py        # when / stop_on / loop_on / STOP predicates
+step_io.py           # input assembly, artifacts, submit_result schema
+display.py           # terminal headers + usage formatting
+
+# Infrastructure
+tools.py             # Built-in tool definitions (sandboxed to repo root)
 mcp_client.py        # MCP subprocess client
 skills_loader.py     # Skill loading + prompt injection
-trace.py             # Trace logging, saving, and formatting
-repl_utils.py        # REPL utilities (status bar, escape key)
+tracing.py           # Trace logging, saving, and formatting
+langfuse_client.py   # Optional Langfuse observability
+repl_utils.py        # Low-level REPL utilities (status bar, escape key)
 prompts.py           # Base system prompts
-logo.py              # Startup logo
 .mcp.json            # MCP server registry
 ```
 
