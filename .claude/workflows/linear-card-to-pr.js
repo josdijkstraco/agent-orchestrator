@@ -52,9 +52,43 @@ const SHIP = {
   required: ['prUrl'],
 }
 
-// ---- inputs (parameterize so the same saved workflow runs on any card) ----
-const CARD_ID    = args?.card ?? 'ENG-123'
-const MAX_ROUNDS = args?.maxRounds ?? 5
+// ---- inputs: resolve the target card from args (object, JSON string, or natural-language string) ----
+// args reaches the script three ways and we must handle all of them:
+//   1. a real object:            { card: 'AC-30', maxRounds: 5 }
+//   2. a JSON-encoded string:    '{"card":"AC-30","maxRounds":5}'
+//   3. a slash-command NL string: 'for card AC-30 and max iterations 5'
+// We deliberately do NOT fall back to a placeholder card — guessing a card id is how the wrong
+// issue gets touched. If no card can be resolved, the workflow stops with a usage message below.
+function parseArgs(a) {
+  if (a && typeof a === 'object') return a
+  if (typeof a === 'string') {
+    try { const o = JSON.parse(a); if (o && typeof o === 'object') return o } catch {}
+    // free text: scrape a Linear identifier (e.g. AC-30) and an iteration count out of the words
+    const id = a.match(/\b[A-Za-z][A-Za-z0-9]*-\d+\b/)
+    const rounds = a.match(/\b(?:max|iterations?|rounds?)\D{0,12}?(\d+)/i)
+    return { card: id ? id[0].toUpperCase() : undefined, maxRounds: rounds ? Number(rounds[1]) : undefined }
+  }
+  return {}
+}
+const _a = parseArgs(args)
+const CARD_ID    = _a.card
+const MAX_ROUNDS = _a.maxRounds ?? 5
+
+// No card specified -> do not guess. Print usage and stop before doing any work.
+if (!CARD_ID) {
+  log(
+    'linear-card-to-pr — no card specified; nothing to do.\n\n' +
+    'USAGE\n' +
+    '  Workflow({ name: "linear-card-to-pr", args: { card: "AC-30", maxRounds: 5 } })\n' +
+    '  /linear-card-to-pr for card AC-30 and max iterations 5\n\n' +
+    'ARGS\n' +
+    '  card       (required)  Linear issue identifier, e.g. "AC-30"\n' +
+    '  maxRounds  (optional)  implement<->review iterations before a draft PR is opened (default 5)\n\n' +
+    'FLOW\n' +
+    '  fetch the card -> move to In Progress -> plan -> implement<->review until approved -> open PR -> mark Done.'
+  )
+  return { status: 'usage', reason: 'no card specified', requiredArg: 'card (e.g. { card: "AC-30" })' }
+}
 const ATTRIB_COMMIT = 'Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>'
 const ATTRIB_PR     = '🤖 Generated with [Claude Code](https://claude.com/claude-code)'
 // All git/GitHub work goes through the local CLIs, never the GitHub MCP server.
